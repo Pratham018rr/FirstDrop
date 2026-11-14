@@ -309,17 +309,71 @@ document.getElementById('applyLaunch').addEventListener('click',(e)=>{e.preventD
 document.getElementById('closeModal').addEventListener('click',closeFounderForm);
 modal.addEventListener('click',(e)=>{if(e.target===modal)closeFounderForm()});
 document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&modal.classList.contains('open'))closeFounderForm()});
-document.getElementById('founderForm').addEventListener('submit',(e)=>{
- e.preventDefault();
- const form=e.currentTarget, data=Object.fromEntries(new FormData(form).entries());
- data.applicationType='FIRSTDROP founder application draft';
- data.status='Local preview only — not submitted';
- data.createdAt=new Date().toISOString();
- const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
- const url=URL.createObjectURL(blob),a=document.createElement('a');
- a.href=url;a.download='firstdrop-founder-application-draft.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
- closeFounderForm();showToast('Draft downloaded to your device');form.reset();
+
+const SUPABASE_URL = 'https://ycfsryijajbqiyyvjksi.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_3uESrmJw6CcXePjjFaG4jw_Q7Em6Mpl';
+
+document.getElementById('founderForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const form = e.currentTarget;
+  const button = form.querySelector('button[type="submit"]');
+
+  const value = name => form.elements[name].value.trim();
+  const optionalNumber = name =>
+    value(name) === '' ? null : Number(value(name));
+
+  const payload = {
+    founder_name: value('founderName'),
+    founder_email: value('founderEmail'),
+    brand_name: value('brandName'),
+    stage: value('stage'),
+    category: value('category'),
+    product_name: value('productName'),
+    target_price: optionalNumber('targetPrice'),
+    unit_cost: optionalNumber('unitCost'),
+    minimum_qty: optionalNumber('minimumQty'),
+    timeline: value('timeline') || null,
+    product_description: value('productDescription'),
+    proof_link: value('proofLink') || null
+  };
+
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Submitting...';
+
+  try {
+    const response = await fetch(
+      SUPABASE_URL + '/rest/v1/founder_applications',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_PUBLISHABLE_KEY,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(detail);
+    }
+
+    form.reset();
+    closeFounderForm();
+    showToast('Application submitted successfully!');
+  } catch (error) {
+    console.error('FIRSTDROP submission error:', error);
+    showToast('Submission failed. Please try again.');
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
 });
+
 </script>
 </body>
 </html>
